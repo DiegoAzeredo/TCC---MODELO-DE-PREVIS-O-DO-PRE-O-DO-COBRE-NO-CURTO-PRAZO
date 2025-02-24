@@ -1,0 +1,549 @@
+---
+title: "TCC"
+author: "Diego Azeredo"
+date: '2023-11-29'
+output: html_document
+---
+
+```{r message=FALSE, warning=FALSE}
+library(janitor)
+library(FactoMineR)
+library(factoextra)
+library(tidymodels)
+library(corrplot)
+library(caret)
+library(broom)
+library(patchwork)
+library(readxl)
+library(psych)
+library(GGally)
+library(knitr)
+library(urca)
+library(vars)
+library(MASS)
+library(openxlsx)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Leitura e organização dos dados
+dados_tcc <- read_excel("C:/Users/diego/Documents/Diego/Facul/Econometria 3/TCC/Planilha de dados TCC.xlsx")
+view(dados_tcc)
+dados_tcc_subcon <- dados_tcc[1:156,3:11]
+view(dados_tcc_subcon)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#DADOS UTILIZADOS
+date <- dados_tcc[[1]]
+preco_cobre <-dados_tcc[[2]]
+producao_cobre <-dados_tcc[[3]] 
+producao_cobre_chile <- dados_tcc[[4]]
+preco_brent <- dados_tcc[[5]]
+preco_alum <- dados_tcc[[6]]
+estoque <- dados_tcc[[7]]
+industrial_prod <- dados_tcc[[8]]
+china_imports <- dados_tcc[[9]]
+indice_bdi <- dados_tcc[[10]]
+tx_cambio <- dados_tcc[[11]]
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#Boxplot das variáveis
+
+# Reorganize o dataframe para o formato longo
+dados_tcc_long <- tidyr::gather(dados_tcc, key = "Variável", value = "Valor", -Data)
+
+# Crie um boxplot para cada variável
+p <- ggplot(dados_tcc_long, aes(x = Variável, y = Valor)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+print(p)
+
+#Padronizado
+dados_tcc_box <- dados_tcc[1:156,2:11]
+dados_tcc_scale <- scale(dados_tcc_box)
+dados_tcc_padr <- as.data.frame(dados_tcc_scale)
+
+dados_tcc_scale_long <- tidyr::gather(dados_tcc_padr, key = "Variável", value = "Valor")
+
+q <- ggplot(dados_tcc_scale_long, aes(x = Variável, y = Valor)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+print(q)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Teste de Bartlett
+resultado_bartlett <- bartlett.test(dados_tcc_subcon)
+print(resultado_bartlett)
+#Se o valor-p for menor que o nível de significância escolhido (geralmente 0,05),
+#você pode rejeitar a hipótese nula, o que indica que pelo menos uma das amostras 
+#tem uma variância significativamente diferente das outras.
+#p-value < 2.2e-16
+
+#Scatter plot of Dataset, o que demora a carregar
+ggpairs(dados_tcc_box)
+
+#Verificando correlação das variáveis com o preço do cobre
+dataset23 <- dados_tcc[1:156,c(2,3)]
+dataset24 <- dados_tcc[1:156,c(2,4)]
+dataset25 <- dados_tcc[1:156,c(2,5)]
+dataset26 <- dados_tcc[1:156,c(2,6)]
+dataset27 <- dados_tcc[1:156,c(2,7)]
+dataset28 <- dados_tcc[1:156,c(2,8)]
+dataset29 <- dados_tcc[1:156,c(2,9)]
+dataset210 <- dados_tcc[1:156,c(2,10)]
+dataset211<- dados_tcc[1:156,c(2,11)]
+
+matriz_23 <- cor(dataset23)
+matriz_24 <-cor(dataset24)
+matriz_25 <-cor(dataset25)
+matriz_26 <-cor(dataset26)
+matriz_27 <-cor(dataset27)
+matriz_28 <-cor(dataset28)
+matriz_29 <-cor(dataset29)
+matriz_210 <-cor(dataset210)
+matriz_211 <-cor(dataset211)
+
+tabela_corr <- data.frame('Variáveis' = colnames(dados_tcc_subcon), 'Correlação Linear com Preço
+    do Cobre' = c(matriz_23[1,2], matriz_24[1,2], matriz_25[1,2], matriz_26[1,2], matriz_27[1,2],
+    matriz_28[1,2], matriz_29[1,2], matriz_210[1,2], matriz_211[1,2]))
+
+view(tabela_corr)
+print(tabela_corr)
+
+# Padronização da escala
+dados_tcc_box_padr <- scale(dados_tcc_box)
+view(dados_tcc_box_padr)
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Gerar PCA
+res.pca <- PCA(dados_tcc_box_padr, graph = F)
+res.pca
+# Extrair a proporção de variância dos componentes principais
+eig.val <- get_eigenvalue(res.pca)
+eig.val
+
+tabela_componentes <- kable(eig.val[,c(2,3)], 
+                            caption = "Tabela de Eigenvalues",
+                            col.names = c("Componente", "Percentual de Variância", "Cumulativo Percentual"),
+                            align = "c")
+print(tabela_componentes)
+
+# Plotar no gráfico mostrando a proporção de variância de cada variável
+fviz_eig(res.pca, addlabels = T, ylim = c(0,90))
+
+# Extrair os resultados das variáveis do PCA para plotar no gráfico
+var <- get_pca_var(res.pca)
+ind <- get_pca_ind(res.pca)
+var_cor <- res.pca$var$cor
+var_cor
+
+# Plotar gráfico de PCA
+fviz_pca_var(res.pca, col.var = 'dark blue')
+
+# Plotar novamente o gráfico usando o gráfico Biplot
+fviz_pca_biplot(res.pca, col.var = 'dark blue', title = 'Gráfico PCA Preço Cobre')
+
+# Checar a qualidade da representação com Cos2 e gráfico
+var$cos2
+corrplot(var$cos2, is.corr = F)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#Preço do Cobre:
+ts_completa_preco_cobre <- ts(preco_cobre,start=2010, frequency = 12)
+plot(ts_completa_preco_cobre, ylab = "Preço Cobre (USD/ton)") #criar grafico da serie
+decom_preco_cobre <- stl(ts_completa_preco_cobre,s.window = "periodic")
+plot(decom_preco_cobre)
+```
+
+```{r message=FALSE, warning=FALSE}
+#Produção de Cobre Global:
+ts_completa_producao_cobre <- ts(producao_cobre,start=2010, frequency = 12)
+plot(ts_completa_producao_cobre, ylab = "Produção de Cobre Refinado Global (Kt)") #criar grafico da serie
+decom_producao_cobre <- stl(ts_completa_producao_cobre,s.window = "periodic")
+plot(decom_producao_cobre)
+```
+
+```{r message=FALSE, warning=FALSE}
+#Produção de Cobre no Chile:
+ts_completa_producao_cobre_chile <- ts(producao_cobre_chile,start=2010, frequency = 12)
+plot(ts_completa_producao_cobre_chile, ylab = "Produção de Cobre no Chile (Kt)") #criar grafico da serie
+decom_producao_cobre_chile <- stl(ts_completa_producao_cobre_chile,s.window = "periodic")
+plot(decom_producao_cobre_chile)
+```
+
+```{r message=FALSE, warning=FALSE}
+#Preço do Brent:
+ts_completa_preco_brent <- ts(preco_brent,start=2010, frequency = 12)
+plot(ts_completa_preco_brent, ylab = "Preço do Brent (USD/b)") #criar grafico da serie
+decom_preco_brent <- stl(ts_completa_preco_brent,s.window = "periodic")
+plot(decom_preco_brent)
+```
+
+```{r message=FALSE, warning=FALSE}
+#Preço do Alumínio:
+ts_completa_preco_alum <- ts(preco_alum,start=2010, frequency = 12)
+plot(ts_completa_preco_alum, ylab = "Preço do Alumínio (USD/ton)") #criar grafico da serie
+decom_preco_alum <- stl(ts_completa_preco_alum,s.window = "periodic")
+plot(decom_preco_alum)
+```
+
+```{r message=FALSE, warning=FALSE}
+#Estoque de Cobre:
+ts_completa_estoque  <- ts(estoque,start=2010, frequency = 12)
+plot(ts_completa_estoque, ylab = "Estoque de Cobre na LME (Kt)") #criar grafico da serie
+decom_estoque <- stl(ts_completa_estoque,s.window = "periodic")
+plot(decom_estoque)
+```
+
+```{r message=FALSE, warning=FALSE}
+#Produção Industrial Global:
+ts_completa_industrial_prod <- ts(industrial_prod,start=2010, frequency = 12)
+plot(ts_completa_industrial_prod, ylab = "Produção Industrial Global (Base fixa 2010 = 100)") #criar grafico da serie
+decom_industrial_prod <- stl(ts_completa_industrial_prod,s.window = "periodic")
+plot(decom_industrial_prod)
+```
+
+```{r message=FALSE, warning=FALSE}
+#Importação de Cobre Refinado da China:
+ts_completa_china_imports <- ts(china_imports,start=2010, frequency = 12)
+plot(ts_completa_china_imports, ylab = "Importação de Cobre Refinado da China (Kt)") #criar grafico da serie
+decom_china_imports <- stl(ts_completa_china_imports,s.window = "periodic")
+plot(decom_china_imports)
+```
+
+```{r message=FALSE, warning=FALSE}
+#Índice Baltic Dry:
+ts_completa_indice_bdi <- ts(indice_bdi,start=2010, frequency = 12)
+plot(ts_completa_indice_bdi, ylab = "Índice Baltic Dry") #criar grafico da serie
+decom_indice_bdi <- stl(ts_completa_indice_bdi,s.window = "periodic")
+plot(decom_indice_bdi)
+```
+
+```{r message=FALSE, warning=FALSE}
+#índice da Taxa de Câmbio:
+ts_completa_tx_cambio <- ts(tx_cambio,start=2010, frequency = 12)
+plot(ts_completa_tx_cambio, ylab = "Índice de Taxa de Câmbio (Base fixa 2010 = 100)") #criar grafico da serie
+decom_tx_cambio <- stl(ts_completa_tx_cambio,s.window = "periodic")
+plot(decom_tx_cambio)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#TESTE DE RAIZ UNITÁRIA
+#Calculando as séries na diferença
+ts_completa_preco_cobre_diff <- diff(ts_completa_preco_cobre, differences = 1)
+ts_completa_producao_cobre_chile_diff <- diff(ts_completa_producao_cobre_chile, differences = 1)
+ts_completa_preco_brent_diff <- diff(ts_completa_preco_brent, differences = 1)
+ts_completa_preco_alum_diff <- diff(ts_completa_preco_alum, differences = 1)
+ts_completa_industrial_prod_diff <- diff(ts_completa_industrial_prod, differences = 1)
+ts_completa_china_imports_diff <- diff(ts_completa_china_imports, differences = 1)
+ts_completa_indice_gsci_diff <- diff(ts_completa_indice_gsci, differences = 1)
+ts_completa_indice_bdi_diff <- diff(ts_completa_indice_bdi, differences = 1)
+ts_completa_tx_cambio_diff <- diff(ts_completa_tx_cambio, differences = 1)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Preço do Cobre em nível
+summary(ur.df(ts_completa_preco_cobre, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_cobre, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_cobre, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_preco_cobre, model = "both"))
+
+#Preço do Cobre na primeira diferença
+summary(ur.df(ts_completa_preco_cobre_diff, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_cobre_diff, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_cobre_diff, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_preco_cobre_diff, model = "both"))
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#Produção de Cobre no Chile em nível
+summary(ur.df(ts_completa_producao_cobre_chile, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_producao_cobre_chile, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_producao_cobre_chile, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_producao_cobre_chile, model = "both"))
+
+#Produção de Cobre no Chile na primeira diferença
+summary(ur.df(ts_completa_producao_cobre_chile_diff, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_producao_cobre_chile_diff, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_producao_cobre_chile_diff, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_producao_cobre_chile_diff, model = "both"))
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Preço do Brent em nível
+summary(ur.df(ts_completa_preco_brent, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_brent, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_brent, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_preco_brent, model = "both"))
+
+#Preço do Brent na primeira diferença
+summary(ur.df(ts_completa_preco_brent_diff, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_brent_diff, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_brent_diff, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_preco_brent_diff, model = "both"))
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Preço do Alumínio em nível
+summary(ur.df(ts_completa_preco_alum, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_alum, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_alum, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_preco_alum, model = "both"))
+
+#Preço do Alumínio na primeira diferença
+summary(ur.df(ts_completa_preco_alum_diff, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_alum_diff, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_preco_alum_diff, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_preco_alum_diff, model = "both"))
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Índice Baltic Dry em nível
+summary(ur.df(ts_completa_indice_bdi, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_indice_bdi, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_indice_bdi, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_indice_bdi, model = "both"))
+
+#Índice Baltic Dry na primeira diferença
+summary(ur.df(ts_completa_indice_bdi_diff, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_indice_bdi_diff, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_indice_bdi_diff, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_indice_bdi_diff, model = "both"))
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Índice de Tx de Câmbio em nível
+summary(ur.df(ts_completa_tx_cambio, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_tx_cambio, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_tx_cambio, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_tx_cambio, model = "both"))
+
+#Índice de Tx de Câmbio na primeira diferença
+summary(ur.df(ts_completa_tx_cambio_diff, type = 'none', selectlags = "AIC"))
+summary(ur.df(ts_completa_tx_cambio_diff, type = 'drift', selectlags = "AIC"))
+summary(ur.df(ts_completa_tx_cambio_diff, type = 'trend', selectlags = "AIC")) 
+summary(ur.za(ts_completa_tx_cambio_diff, model = "both"))
+```
+
+
+```{r message=FALSE, warning=FALSE}
+ts_completa_producao_cobre_chile_nivel <- tail(ts_completa_producao_cobre_chile,-1)
+ts_completa_industrial_prod_nivel <- tail(ts_completa_industrial_prod, -1)
+ts_completa_china_imports_nivel <- tail(ts_completa_china_imports,-1)
+ts_completa_indice_bdi_nivel <- tail(ts_completa_indice_bdi,-1)
+
+
+base0 <- data.frame(ts_completa_preco_cobre_diff, 
+                    ts_completa_producao_cobre_chile_nivel, ts_completa_preco_brent_diff, 
+                    ts_completa_preco_alum_diff,
+                    ts_completa_indice_bdi_nivel, ts_completa_tx_cambio_diff)
+
+#vARIÁVEL DUMMY
+
+dummy_1 <- rep(0, 155)
+dummy_1[1:36] <- 1
+base1 <- cbind(base0, dummy_1)
+
+dummy_2 <- rep(0, 155)
+dummy_2[122:150] <- 1
+base2 <- cbind(base1, dummy_2)
+
+view(base2)
+
+#Como usaremos o critério da informação na escolha de modelo VAR, seguiremos com 1 lag de defasagem.
+VARselect(base2, lag.max = 6)
+modelo <- VAR(base2, type = "both", p = 1)
+summary(modelo)
+
+estcoefs = coef(modelo) #Calculando os coeficientes estimados do modelo
+estcoefs = rbind(estcoefs[[1]][, 1])
+round(estcoefs, 2)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#Teste de Autocorrelação
+serial.test(modelo, lags.pt = 10 , type = "PT.adjusted")
+
+#Teste de Heterocedasticidade
+arch.test(modelo)
+```
+
+
+#TESTES DE CAUSALIDADE DE GRANGER
+
+```{r message=FALSE, warning=FALSE}
+causality(modelo,cause='ts_completa_producao_cobre_chile_nivel')
+```
+
+```{r message=FALSE, warning=FALSE}
+causality(modelo,cause='ts_completa_preco_brent_diff')
+```
+
+```{r message=FALSE, warning=FALSE}
+causality(modelo,cause='ts_completa_preco_alum_diff')
+```
+
+```{r message=FALSE, warning=FALSE}
+causality(modelo,cause='ts_completa_indice_bdi_nivel')
+```
+
+```{r message=FALSE, warning=FALSE}
+causality(modelo,cause='ts_completa_tx_cambio_diff')
+```
+
+
+### Análise do Impulso resposta
+
+```{r message=FALSE, warning=FALSE}
+#Choque na Produção de Cobre do Chile e resposta no Preço do Cobre
+ir.1 = irf(modelo, impulse = "ts_completa_producao_cobre_chile_nivel", response = "ts_completa_preco_cobre_diff", n.head = 20, ortho = FALSE)
+ir.1cumulative = irf(modelo, impulse = "ts_completa_producao_cobre_chile_nivel", response = "ts_completa_preco_cobre_diff", n.head = 20, ortho = FALSE, cumulative = TRUE )
+plot(ir.1)
+plot(ir.1cumulative)
+```
+
+```{r message=FALSE, warning=FALSE}
+#Choque no Preço do Brent e resposta no Preço do Cobre
+ir.2 = irf(modelo, impulse = "ts_completa_preco_brent_diff", response = "ts_completa_preco_cobre_diff", n.head = 20, ortho = FALSE)
+ir.2cumulative = irf(modelo, impulse = "ts_completa_preco_brent_diff", response = "ts_completa_preco_cobre_diff", n.head = 20, ortho = FALSE, cumulative = TRUE )
+
+plot(ir.2)
+plot(ir.2cumulative)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#Choque no Preço do Alumínio e resposta no Preço do Cobre
+ir.3 = irf(modelo, impulse = "ts_completa_preco_alum_diff", response = "ts_completa_preco_cobre_diff", n.head = 20, ortho = FALSE)
+ir.3cumulative = irf(modelo, impulse = "ts_completa_preco_alum_diff", response = "ts_completa_preco_cobre_diff", n.head = 20, ortho = FALSE, cumulative = TRUE )
+
+plot(ir.3)
+plot(ir.3cumulative)
+```
+
+```{r message=FALSE, warning=FALSE}
+#Choque no BDI e resposta no Preço do Cobre
+ir.4 = irf(modelo, impulse = "ts_completa_indice_bdi_nivel", response = "ts_completa_preco_cobre_diff", n.head = 20, ortho = FALSE)
+ir.4cumulative = irf(modelo, impulse = "ts_completa_indice_bdi_nivel", response = "ts_completa_preco_cobre_diff", n.head = 20, ortho = FALSE, cumulative = TRUE )
+
+plot(ir.4)
+plot(ir.4cumulative)
+```
+
+```{r message=FALSE, warning=FALSE}
+#Choque na Tx. de Câmbio e resposta no Preço do Cobre
+ir.5 = irf(modelo, impulse = "ts_completa_tx_cambio_diff", response = "ts_completa_preco_cobre_diff", n.head = 20, ortho = FALSE)
+ir.5cumulative = irf(modelo, impulse = "ts_completa_tx_cambio_diff", response = "ts_completa_preco_cobre_diff", n.head = 20, ortho = FALSE, cumulative = TRUE )
+
+plot(ir.5)
+plot(ir.5cumulative)
+```
+
+
+#Modelo de Regressão Liear
+
+```{r message=FALSE, warning=FALSE}
+
+ts_completa_preco_alum_lag1 <- lag(c(ts_completa_preco_alum), 1)
+ts_completa_tx_cambio_lag1 <- lag(c(ts_completa_tx_cambio), 1)
+
+# Crie um novo data frame com as variáveis originais e a defasagem
+data_base <- data.frame(ts_completa_preco_cobre = ts_completa_preco_cobre,
+  ts_completa_preco_alum = ts_completa_preco_alum,  # Remova o primeiro valor da série temporal
+  ts_completa_preco_alum_lag1 = ts_completa_preco_alum_lag1,
+  ts_completa_tx_cambio = ts_completa_tx_cambio,
+  ts_completa_tx_cambio_lag1 = ts_completa_tx_cambio_lag1
+    # Remova o último valor da defasagem
+  )
+
+
+# Remova as observações com valores NA resultantes das defasagens
+data_base <- na.omit(data_base)
+view(data_base)
+regressao <- lm(ts_completa_preco_cobre ~  ts_completa_preco_alum_lag1 + ts_completa_tx_cambio_lag1, data = data_base)
+
+# Exiba um resumo do modelo
+summary(regressao)
+```
+
+```{r message=FALSE, warning=FALSE}
+
+ts_completa_preco_alum_lag1 <- lag(c(ts_completa_preco_alum), 1)
+ts_completa_tx_cambio_lag1 <- lag(c(ts_completa_tx_cambio), 1)
+ts_completa_preco_cobre_lag1 <- lag(c(ts_completa_preco_cobre), 1)
+ts_completa_preco_alum_lag2 <- lag(c(ts_completa_preco_alum), 2)
+ts_completa_tx_cambio_lag2 <- lag(c(ts_completa_tx_cambio), 2)
+
+# Crie um novo data frame com as variáveis originais e a defasagem
+data_base2 <- data.frame(ts_completa_preco_cobre = ts_completa_preco_cobre,
+  ts_completa_preco_cobre_lag1 = ts_completa_preco_cobre_lag1,
+  ts_completa_preco_alum_lag1 = ts_completa_preco_alum_lag1,
+  ts_completa_preco_alum_lag2 = ts_completa_preco_alum_lag2,
+  ts_completa_tx_cambio = ts_completa_tx_cambio,
+  ts_completa_tx_cambio_lag1 = ts_completa_tx_cambio_lag1,
+  ts_completa_tx_cambio_lag2 = ts_completa_tx_cambio_lag2)
+
+# Remova as observações com valores NA resultantes das defasagens
+data_base2 <- na.omit(data_base2)
+view(data_base2)
+regressao2 <- lm(ts_completa_preco_cobre ~  ts_completa_preco_cobre_lag1 + ts_completa_preco_alum_lag1 + ts_completa_tx_cambio_lag1 + ts_completa_preco_alum_lag2 + ts_completa_tx_cambio_lag2 , data = data_base2)
+
+# Exiba um resumo do modelo
+summary(regressao2)
+regressao2
+```
+
+```{r message=FALSE, warning=FALSE}
+preco_cobre_regressao <- (-60.7433 + (ts_completa_preco_cobre_lag1*1.0038) +
+  (ts_completa_preco_alum_lag1*0.8021) + (ts_completa_tx_cambio_lag1*-45.3139)+
+  (ts_completa_preco_alum_lag2*-0.9515)+(ts_completa_tx_cambio_lag2*48.5943))
+preco_cobre_regressao <- na.omit(preco_cobre_regressao)
+view(preco_cobre_regressao)
+
+data_base3 <- data.frame(date = date[-c(1,2)],ts_completa_preco_cobre = ts_completa_preco_cobre[-c(1, 2)], preco_cobre_regressao )
+view(data_base3)
+
+grafico <- ggplot(data_base3, aes(x = date)) +
+  geom_line(aes(y = ts_completa_preco_cobre), color = "dark blue", linetype = "solid", show.legend = TRUE) +
+  geom_line(aes(y = preco_cobre_regressao), color = "black", linetype = "dashed", show.legend = TRUE) +
+  labs(x = "Time", y = "USD/ton") +
+  theme_minimal()
+
+print(grafico)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+caminho_excel <- "C:/Users/diego/Documents/Diego/Facul/Econometria 3/TCC/Dados_finais.xlsx"
+
+# Use a função write.xlsx para exportar para o Excel
+write.xlsx(data_base3, caminho_excel, sheetName = "Planilha1", rowNames = FALSE)
+```
+
+
+
+
+
+
